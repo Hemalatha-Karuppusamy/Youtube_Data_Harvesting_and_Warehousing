@@ -12,7 +12,7 @@ import streamlit as st
 import isodate
 import re
 
-api_key = "AIzaSyBI5um9PzKhCWNXubzQlIrAKGjd7zoQbd4"
+api_key = "Enter your API key"
 api_service_name = "youtube"
 api_version = "v3"
 
@@ -98,7 +98,7 @@ def get_comment_details(video_ids):
     return comment_list
 
 def data_to_mongo(input):
-    client = pymongo.MongoClient("mongodb+srv://iam_hema:hemalatha@hemz.fo3int4.mongodb.net/?retryWrites=true&w=majority")
+    client = pymongo.MongoClient("mongodb+srv://iam_hema:<password>@hemz.fo3int4.mongodb.net/?retryWrites=true&w=majority")
     db = client["Youtube"]
     col1 = db["channel_details"]
     existing_channel= col1.find_one({"_id":input})
@@ -117,18 +117,20 @@ def data_to_mongo(input):
             with st.spinner('Wait for it...'):
                 time.sleep(5)
             st.success('Data retrived and loaded into MongoDb..')
-        except HTTPError:
-            st.error("Maximum Quota for the day is breached try after 24hrs.")
-        except:
-            st.error("Invalid channel ID")
+        except Exception as e:
+            error_message = str(e)
+            if "quota" in error_message.lower():
+                st.error("Maximum Quota for the day is breached. Please try again after 24 hours.")
+            else:
+                st.error("An error occurred: " + error_message)
     else:
         st.error("Data Already Exists")
 
 def retrive(data):
 
-    client = pymongo.MongoClient("mongodb+srv://iam_hema:hemalatha@hemz.fo3int4.mongodb.net/?retryWrites=true&w=majority")
+    client = pymongo.MongoClient("mongodb+srv://iam_hema:<password>@hemz.fo3int4.mongodb.net/?retryWrites=true&w=majority")
     
-    db = psycopg2.connect(host='localhost', user='postgres', password='SivA@879789', port=5432, database='Youtube')
+    db = psycopg2.connect(host='localhost', user='postgres', password='password', port=5432, database='Youtube')
     exe = db.cursor()
 
     exe.execute("""create table if not exists channel(
@@ -156,6 +158,14 @@ def retrive(data):
     video_favourite int,
     video_comment_count int)""")
     db.commit()
+
+    exe.execute("""create table if not exists comment (
+    comment_id varchar unique,
+    video_id varchar,
+    comment_text text,
+    author text,
+    comment_date varchar)""")
+    db.commit()
     
     channel_data = client["Youtube"]["channel_details"].find_one({'channel.channel_name': data}, {"_id": 0})
 
@@ -174,13 +184,19 @@ def retrive(data):
                             v['video_likes'], v['video_dislikes'],
                             v['video_favourite'], v['video_comment_count']))
             db.commit()
+        for v in channel_data['comment_details']:
+            exe.execute("insert into comment values(%s,%s,%s,%s,%s)",
+                        (v['comment_id'], v['video_id'],
+                            v['comment_text'], v['comment_author'],
+                            v['commented_on']))
+            db.commit()
         st.success("Data Successfully migrated to SQL database.")
     except:
         st.error("you are trying to add duplicates \nData migration done")
 
 def dropdownlist():
      chanelname =[]
-     client = pymongo.MongoClient("mongodb+srv://iam_hema:hemalatha@hemz.fo3int4.mongodb.net/?retryWrites=true&w=majority")
+     client = pymongo.MongoClient("mongodb+srv://iam_hema:<password>@hemz.fo3int4.mongodb.net/?retryWrites=true&w=majority")
      for i in client["Youtube"]["channel_details"].find():
          chanelname.append(i["channel"]["channel_name"])
      return(chanelname)
@@ -188,7 +204,7 @@ def dropdownlist():
 def analysis(data):
     if data == "Visualisation of video names along with their channel name":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name ,video_name from video")
             result = exe.fetchall()
@@ -201,7 +217,7 @@ def analysis(data):
 
     if data == "Visualisation of channels that have most number of videos along with their video count":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name ,channel_video_count from channel order by channel_video_count desc limit 5 ")
             result = exe.fetchall()
@@ -214,7 +230,7 @@ def analysis(data):
     
     if data == "Visualisation of top 10 most viewed videos and their respective channels":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select video_name ,video_views from video order by video_views desc limit 10 ")
             result = exe.fetchall()
@@ -227,7 +243,7 @@ def analysis(data):
     
     if data == "Visualisation of no of comments made on each video along with their corresponding video names":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name ,video_name , video_comment_count from video order by channel_name, video_name ")
             result = exe.fetchall()
@@ -240,7 +256,7 @@ def analysis(data):
         
     if data == "Visualisation of videos that have the highest number of likes along their corresponding channel name.":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name, video_name ,video_likes from video order by video_likes desc limit 15 ")
             result = exe.fetchall()
@@ -253,7 +269,7 @@ def analysis(data):
     
     if data == "Visualisation of total number of likes and dislikes for each video along with their corresponding video names":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select video_name,video_likes,video_dislikes from video")
             result = exe.fetchall()
@@ -266,7 +282,7 @@ def analysis(data):
     
     if data == "Visualisation of total number of views for each channel along with their corresponding channel names":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name ,channel_views from channel order by channel_name")
             result = exe.fetchall()
@@ -279,7 +295,7 @@ def analysis(data):
     
     if data == "Visualisation of names of all the channels that have published videos in the year 2022":
         try: 
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select distinct channel_name from video where video_date like '2022%' ")
             result = exe.fetchall()
@@ -293,7 +309,7 @@ def analysis(data):
     
     if data == "Visualisation of Average duration of all videos in each channel along with their corresponding channel name.":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name , avg(video_duration) from video group by channel_name")
             result = exe.fetchall()
@@ -306,7 +322,7 @@ def analysis(data):
     
     if data == "Visualisation of Videos that have highest number of comments and their corresponding channel name.":
         try:
-            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='SivA@879789',port = 5432,database = 'Youtube')
+            db = psycopg2.connect(host = 'localhost',user = 'postgres',password='password',port = 5432,database = 'Youtube')
             exe = db.cursor()
             exe.execute("select channel_name,video_name,video_comment_count from video order by video_comment_count desc limit 10 ")
             result = exe.fetchall()
@@ -321,9 +337,7 @@ st.set_page_config(page_title="Youtube Data Harvesting and Warehousing",page_ico
 st.header(':rainbow[Youtube Data Harvesting and Warehousing]')
 st.text("""
 """)
-
 col1, col2 =  st.columns(2)
-
 with col1:
     st.markdown(":rainbow[Data Collection Zone]")
     st.caption(":gray[The function block of the zone is to fetch the data from youtube API and to upload the data into MongoDb Database]")
